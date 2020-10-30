@@ -4,6 +4,12 @@ include(CheckSymbolExists)
 
 project(test-suite C CXX)
 
+function(append value)
+  foreach(variable ${ARGN})
+    set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
+  endforeach(variable)
+endfunction()
+
 # The test-suite is designed to be built in release mode anyway and
 # falls over unless -DNDEBUG is set.
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -156,6 +162,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TEST_SUITE_DIAGNOSE_FLAGS}")
 set(CMAKE_EXE_LINKER_FLAGS
     "${CMAKE_EXE_LINKER_FLAGS} ${TEST_SUITE_DIAGNOSE_LINKER_FLAGS}")
 
+if (TESTSUITE_USE_LINKER)
+    append("-fuse-ld=${TESTSUITE_USE_LINKER}"
+    CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAG)
+endif()
+
 # Append extra flags. These extra flags are mainly meant for cache files that
 # want to apply flags that get not override even when the user manually
 # specifies CMAKE_C_FLAGS and similar.
@@ -169,6 +180,12 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${TEST_SUITE_EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TEST_SUITE_EXTRA_CXX_FLAGS}")
 set(CMAKE_EXE_LINKER_FLAGS
     "${CMAKE_EXE_LINKER_FLAGS} ${TEST_SUITE_EXTRA_EXE_LINKER_FLAGS}")
+
+# Use X/OPEN compatibility flag on AIX for C tests to avoid problems
+# with some versions of the system headers.
+if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_XOPEN_SOURCE=700")
+endif()
 
 # This is either directly the C++ ABI library or the full C++ library
 # which pulls in the ABI transitively.
@@ -233,6 +250,7 @@ endif()
 #     The outputs can be compared to gcc.
 #     The outputs match the reference outputs.
 if(ARCH STREQUAL "PowerPC")
+  check_symbol_exists(_LP64 "" PPC_IS_PPC64_ENABLED)
   add_definitions(-ffp-contract=off)
 endif()
 

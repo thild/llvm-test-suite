@@ -5,35 +5,30 @@ set(SUPPORTED_GPU_CUDA_7_0
   sm_20 sm_21
   sm_30 sm_32 sm_35 sm_37
   sm_50 sm_52 sm_53)
-set(SUPPORTED_GPU_CUDA_7_5
-  sm_20 sm_21
-  sm_30 sm_32 sm_35 sm_37
-  sm_50 sm_52 sm_53)
-set(SUPPORTED_GPU_CUDA_8_0
-  sm_20 sm_21
-  sm_30 sm_32 sm_35 sm_37
-  sm_50 sm_52 sm_53
+set(SUPPORTED_GPU_CUDA_7_5 ${SUPPORTED_GPU_CUDA_7_0})
+
+set(SUPPORTED_GPU_CUDA_8_0 ${SUPPORTED_GPU_CUDA_7_5}
   sm_60 sm_61 sm_62)
-set(SUPPORTED_GPU_CUDA_9_0
+
+set(SUPPORTED_GPU_CUDA_9_0 ${SUPPORTED_GPU_CUDA_8_0}
+  sm_70)
+set(SUPPORTED_GPU_CUDA_9_1 ${SUPPORTED_GPU_CUDA_9_0}
+  sm_72)
+# 9.2 removed sm_2x
+set(SUPPORTED_GPU_CUDA_9_2
   sm_30 sm_32 sm_35 sm_37
   sm_50 sm_52 sm_53
   sm_60 sm_61 sm_62
-  sm_70)
-set(SUPPORTED_GPU_CUDA_9_1
-  sm_30 sm_32 sm_35
-  sm_50 sm_52 sm_53
-  sm_60 sm_61 sm_62
-  sm_70 sm_72)
-set(SUPPORTED_GPU_CUDA_9_2
-  sm_30 sm_32 sm_35
-  sm_50 sm_52 sm_53
-  sm_60 sm_61 sm_62
-  sm_70 sm_72)
-set(SUPPORTED_GPU_CUDA_10_0
-  sm_30 sm_32 sm_35
-  sm_50 sm_52 sm_53
-  sm_60 sm_61 sm_62
-  sm_70 sm_72 sm_75)
+  sm_70 sm_72
+)
+
+set(SUPPORTED_GPU_CUDA_10_0 ${SUPPORTED_GPU_CUDA_9_2}
+  sm_75)
+set(SUPPORTED_GPU_CUDA_10_1 ${SUPPORTED_GPU_CUDA_10_0})
+set(SUPPORTED_GPU_CUDA_10_2 ${SUPPORTED_GPU_CUDA_10_1})
+
+set(SUPPORTED_GPU_CUDA_11_0 ${SUPPORTED_GPU_CUDA_10_2}
+  sm_80)
 
 # Helper macro to extract version number at the end of the string
 # Input: get_version(Var String)
@@ -41,7 +36,7 @@ set(SUPPORTED_GPU_CUDA_10_0
 # Output:
 #    Sets Var=x.y.z
 macro(get_version Var Path)
-    string(REGEX MATCH "[0-9]+(\\.[0-9]+)+" ${Var} ${Path})
+    string(REGEX MATCH "[0-9]+(\\.[0-9]+)*$" ${Var} ${Path})
 endmacro (get_version)
 
 # Helper function to glob CUDA source files and set LANGUAGE property
@@ -103,6 +98,7 @@ macro(create_local_cuda_tests VariantSuffix)
   create_one_local_test(empty empty.cu)
   create_one_local_test(printf printf.cu)
   create_one_local_test(future future.cu)
+  create_one_local_test(builtin_var builtin_var.cu)
   # We only need SIMD tests on CUDA-8.0 to verivy that our reference is correct
   # and matches NVIDIA-provided one.  and on CUDA-9.2 to verify that clang's
   # implementation matches the reference.  This test also happens to be the
@@ -257,7 +253,7 @@ macro(create_cuda_tests)
 	  message(STATUS "Found libstdc++ ${GccVersion}")
 	  add_library(libstdcxx-${GccVersion} SHARED IMPORTED)
 	  set_property(TARGET libstdcxx-${GccVersion} PROPERTY IMPORTED_LOCATION
-	    ${GccDir}/lib64/libstdc++.so)
+	    ${_path_to_libstdcxx})
 	  list(APPEND GCC_PATHS ${GccDir})
 	  break()
 	endif()
@@ -274,6 +270,8 @@ macro(create_cuda_tests)
   if(EXISTS ${_path_to_libcxx})
     add_library(libcxx SHARED IMPORTED)
     set_property(TARGET libcxx PROPERTY IMPORTED_LOCATION ${_path_to_libcxx})
+    get_filename_component(_libcxx_dir ${_path_to_libcxx} DIRECTORY)
+    target_link_options(libcxx INTERFACE "-Wl,-rpath,${_libcxx_dir}")
     set(HAVE_LIBCXX 1)
   else()
     message(WARNING "Can't find libcxx location.")
